@@ -238,7 +238,7 @@ def get_available_slots(date_str):
         
         all_slots = []
         hour = WORK_START_HOUR
-        while hour < WORK_END_HOUR:
+        while hour <= WORK_END_HOUR:
             time_str = f"{hour:02d}:00"
             all_slots.append(time_str)
             hour += SLOT_DURATION_MINUTES // 60
