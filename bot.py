@@ -754,8 +754,7 @@ def time_slot_selected(call):
     # Запрашиваем имя
     msg = bot.send_message(
         call.message.chat.id,
-        "📝 *Введите ваше имя:*\n\n"
-        "Например: Анна",
+        "📝 *Введите ваше имя:*\n\n",
         reply_markup=cancel_keyboard(),
         parse_mode="Markdown"
     )
@@ -788,7 +787,7 @@ def process_name(message):
     msg = bot.send_message(
         message.chat.id,
         "📱 *Введите номер телефона:*\n\n"
-        "В формате: +7 (999) 123-45-67\n"
+        "В формате: +7 (999) 999-99-99\n"
         "Или нажмите кнопку ниже для автоматической отправки",
         reply_markup=phone_keyboard(),
         parse_mode="Markdown"
@@ -818,7 +817,7 @@ def process_phone(message):
         msg = bot.send_message(
             message.chat.id,
             "❌ Некорректный номер телефона.\n"
-            "Пожалуйста, введите в формате: +7 (999) 123-45-67\n"
+            "Пожалуйста, введите в формате: +7 (999) 999-99-99\n"
             "Или нажмите кнопку «📱 Отправить номер телефона»",
             reply_markup=phone_keyboard()
         )
