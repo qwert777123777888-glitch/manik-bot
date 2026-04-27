@@ -1369,11 +1369,16 @@ def broadcast_confirm(call):
     success = 0
     failed = 0
     
-    safe_edit_message_text(
+    # Удаляем старое сообщение и отправляем новое
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except:
+        pass
+    
+    status_msg = bot.send_message(
         call.message.chat.id,
-        call.message.message_id,
-        f"📢 *Рассылка началась...*\n"
-        f"👥 Всего получателей: {total}"
+        f"📢 *Рассылка началась...*\n👥 Всего получателей: {total}",
+        parse_mode="Markdown"
     )
     
     for user in users:
@@ -1388,6 +1393,12 @@ def broadcast_confirm(call):
             failed += 1
         
         time.sleep(0.05)
+    
+    # Удаляем статусное сообщение
+    try:
+        bot.delete_message(call.message.chat.id, status_msg.message_id)
+    except:
+        pass
     
     report = (
         f"✅ *Рассылка завершена!*\n\n"
@@ -1416,15 +1427,15 @@ def broadcast_cancel(call):
     user_booking_data.pop(f"broadcast_{call.from_user.id}", None)
     user_booking_data.pop(f"broadcast_text_{call.from_user.id}", None)
     
-    safe_edit_message_text(
-        call.message.chat.id,
-        call.message.message_id,
-        "❌ Рассылка отменена."
-    )
+    # Удаляем сообщение вместо редактирования
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except:
+        pass
     
     bot.send_message(
         call.message.chat.id,
-        "Выберите действие:",
+        "❌ Рассылка отменена.\nВыберите действие:",
         reply_markup=main_keyboard()
     )
 
