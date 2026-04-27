@@ -11,31 +11,38 @@ from dateutil.relativedelta import relativedelta
 import calendar
 import re
 
-# Импорт конфигурации
 from config import (
     TOKEN, ADMIN_IDS, WORK_START_HOUR, WORK_END_HOUR,
     SLOT_DURATION_MINUTES, REMINDER_DAY_BEFORE, REMINDER_HOUR_BEFORE,
     WELCOME_TEXT, PORTFOLIO_TEXT, PRICE_TEXT, PORTFOLIO_PHOTO_URL
 )
 
-# ==================== ДНИ НЕДЕЛИ НА РУССКОМ ====================
+# ==================== ДНИ НЕДЕЛИ ====================
 DAYS_RU = {
-    'Monday': 'Понедельник',
-    'Tuesday': 'Вторник',
-    'Wednesday': 'Среда',
-    'Thursday': 'Четверг',
-    'Friday': 'Пятница',
-    'Saturday': 'Суббота',
-    'Sunday': 'Воскресенье'
+    'Monday': 'Понедельник', 'Tuesday': 'Вторник', 'Wednesday': 'Среда',
+    'Thursday': 'Четверг', 'Friday': 'Пятница', 'Saturday': 'Суббота', 'Sunday': 'Воскресенье'
 }
 
 def get_day_ru(date_obj):
-    """Получить день недели на русском"""
     day_en = date_obj.strftime("%A")
     return DAYS_RU.get(day_en, day_en)
 
-# ==================== ИНИЦИАЛИЗАЦИЯ БОТА ====================
+# ==================== БОТ ====================
 bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
+
+# ==================== ГЛОБАЛЬНЫЙ ПЕРЕХВАТ ОШИБОК ====================
+original_edit_message_text = bot.edit_message_text
+
+def safe_edit_message_text_global(*args, **kwargs):
+    try:
+        return original_edit_message_text(*args, **kwargs)
+    except Exception as e:
+        if "message is not modified" in str(e):
+            return None
+        raise
+
+bot.edit_message_text = safe_edit_message_text_global
+
 
 # ==================== ХРАНИЛИЩЕ ДАННЫХ ====================
 DATA_DIR = os.getenv("DATA_DIR", "data")
