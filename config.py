@@ -6,12 +6,12 @@ import os
 TOKEN = os.getenv("BOT_TOKEN", "")
 
 # ==================== АДМИНЫ ====================
-ADMIN_IDS_STR = os.getenv("ADMIN_IDS", "123456789")
+ADMIN_IDS_STR = os.getenv("ADMIN_IDS", "")
 ADMIN_IDS = [int(id.strip()) for id in ADMIN_IDS_STR.split(",") if id.strip()]
 
 # ==================== НАСТРОЙКИ ЗАПИСИ ====================
-WORK_START_HOUR = int(os.getenv("WORK_START_HOUR", "10"))
-WORK_END_HOUR = int(os.getenv("WORK_END_HOUR", "20"))
+WORK_START_HOUR = int(os.getenv("WORK_START_HOUR", ""))
+WORK_END_HOUR = int(os.getenv("WORK_END_HOUR", ""))
 SLOT_DURATION_MINUTES = int(os.getenv("SLOT_DURATION_MINUTES", "60"))
 
 # ==================== НАСТРОЙКИ НАПОМИНАНИЙ ====================
