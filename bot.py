@@ -11,38 +11,31 @@ from dateutil.relativedelta import relativedelta
 import calendar
 import re
 
+# Импорт конфигурации
 from config import (
     TOKEN, ADMIN_IDS, WORK_START_HOUR, WORK_END_HOUR,
     SLOT_DURATION_MINUTES, REMINDER_DAY_BEFORE, REMINDER_HOUR_BEFORE,
     WELCOME_TEXT, PORTFOLIO_TEXT, PRICE_TEXT, PORTFOLIO_PHOTO_URL
 )
 
-# ==================== ДНИ НЕДЕЛИ ====================
+# ==================== ДНИ НЕДЕЛИ НА РУССКОМ ====================
 DAYS_RU = {
-    'Monday': 'Понедельник', 'Tuesday': 'Вторник', 'Wednesday': 'Среда',
-    'Thursday': 'Четверг', 'Friday': 'Пятница', 'Saturday': 'Суббота', 'Sunday': 'Воскресенье'
+    'Monday': 'Понедельник',
+    'Tuesday': 'Вторник',
+    'Wednesday': 'Среда',
+    'Thursday': 'Четверг',
+    'Friday': 'Пятница',
+    'Saturday': 'Суббота',
+    'Sunday': 'Воскресенье'
 }
 
 def get_day_ru(date_obj):
+    """Получить день недели на русском"""
     day_en = date_obj.strftime("%A")
     return DAYS_RU.get(day_en, day_en)
 
-# ==================== БОТ ====================
+# ==================== ИНИЦИАЛИЗАЦИЯ БОТА ====================
 bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
-
-# ==================== ГЛОБАЛЬНЫЙ ПЕРЕХВАТ ОШИБОК ====================
-original_edit_message_text = bot.edit_message_text
-
-def safe_edit_message_text_global(*args, **kwargs):
-    try:
-        return original_edit_message_text(*args, **kwargs)
-    except Exception as e:
-        if "message is not modified" in str(e):
-            return None
-        raise
-
-bot.edit_message_text = safe_edit_message_text_global
-
 
 # ==================== ХРАНИЛИЩЕ ДАННЫХ ====================
 DATA_DIR = os.getenv("DATA_DIR", "data")
@@ -158,6 +151,7 @@ def add_appointment(date_str, time_str, user_id, username, client_name, client_p
     if date_str not in appointments:
         appointments[date_str] = {}
     
+    # Удаляем старые записи этого пользователя
     for d, times in list(appointments.items()):
         for t, data in list(times.items()):
             if data.get('user_id') == user_id:
@@ -244,7 +238,7 @@ def get_available_slots(date_str):
         
         all_slots = []
         hour = WORK_START_HOUR
-        while hour <= WORK_END_HOUR:
+        while hour < WORK_END_HOUR:
             time_str = f"{hour:02d}:00"
             all_slots.append(time_str)
             hour += SLOT_DURATION_MINUTES // 60
@@ -398,6 +392,7 @@ def create_admin_calendar(year, month, appointments):
         "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
     ]
     
+    # Собираем даты с записями
     dates_with_appointments = {}
     for app in appointments:
         date_str = app['date']
@@ -454,27 +449,12 @@ def create_admin_calendar(year, month, appointments):
     
     return markup
 
-# ==================== БЕЗОПАСНОЕ РЕДАКТИРОВАНИЕ СООБЩЕНИЙ ====================
-
-def safe_edit_message_text(chat_id, message_id, text, reply_markup=None, parse_mode="Markdown"):
-    """Безопасное редактирование сообщения (игнорирует ошибку 'message is not modified')"""
-    try:
-        bot.edit_message_text(
-            text,
-            chat_id,
-            message_id,
-            reply_markup=reply_markup,
-            parse_mode=parse_mode
-        )
-    except Exception as e:
-        if "message is not modified" not in str(e):
-            print(f"Ошибка редактирования сообщения: {e}")
-
 # ==================== ОБРАБОТЧИКИ КОМАНД ====================
 
 @bot.message_handler(commands=['start'])
 def start_command(message):
     """Приветственное сообщение"""
+    # Сохраняем пользователя
     save_user(
         message.from_user.id,
         message.from_user.username,
@@ -504,6 +484,7 @@ def news_command(message):
         bot.reply_to(message, "🚫 У вас нет доступа к этой команде.")
         return
     
+    # Получаем текст после команды
     text = message.text.replace('/news', '').strip()
     
     if not text:
@@ -516,12 +497,14 @@ def news_command(message):
         )
         return
     
+    # Спрашиваем подтверждение
     markup = InlineKeyboardMarkup()
     markup.add(
         InlineKeyboardButton("✅ Отправить", callback_data=f"broadcast_confirm_{message.message_id}"),
         InlineKeyboardButton("❌ Отмена", callback_data="broadcast_cancel")
     )
     
+    # Сохраняем текст рассылки
     user_booking_data[f"broadcast_{message.from_user.id}"] = text
     
     users = get_all_users()
@@ -543,6 +526,7 @@ def news_command(message):
 @bot.message_handler(func=lambda msg: msg.text == "📅 Записаться на приём")
 def book_appointment(message):
     """Начать процесс записи"""
+    # Сохраняем пользователя
     save_user(
         message.from_user.id,
         message.from_user.username,
@@ -703,13 +687,14 @@ def calendar_navigation(call):
         bot.answer_callback_query(call.id, "📅 Нельзя выбрать прошедший месяц")
         return
     
-    safe_edit_message_text(
-        call.message.chat.id,
-        call.message.message_id,
+    bot.edit_message_text(
         f"📅 *Выберите дату:*\n\n"
         f"🔴 — нет свободных слотов\n"
         f"📍 — сегодняшняя дата",
-        reply_markup=create_calendar(year, month)
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=create_calendar(year, month),
+        parse_mode="Markdown"
     )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cal_day_"))
@@ -726,13 +711,14 @@ def calendar_day_selected(call):
     date_obj = datetime.strptime(date_str, "%d.%m.%Y")
     day_name = get_day_ru(date_obj)
     
-    safe_edit_message_text(
-        call.message.chat.id,
-        call.message.message_id,
+    bot.edit_message_text(
         f"📅 *{date_str}* ({day_name})\n\n"
         f"🕐 *Выберите время:*\n"
         f"Доступно слотов: {len(available_slots)}",
-        reply_markup=create_time_slots_keyboard(date_str)
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=create_time_slots_keyboard(date_str),
+        parse_mode="Markdown"
     )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("slot_"))
@@ -753,19 +739,23 @@ def time_slot_selected(call):
             pass
         return
     
+    # Сохраняем выбранные дату и время
     user_booking_data[call.from_user.id] = {
         'date': date_str,
         'time': time_str
     }
     
+    # Удаляем сообщение с выбором времени
     try:
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except:
         pass
     
+    # Запрашиваем имя
     msg = bot.send_message(
         call.message.chat.id,
-        "📝 *Введите ваше имя:*\n\n",
+        "📝 *Введите ваше имя:*\n\n"
+        "Например: Анна",
         reply_markup=cancel_keyboard(),
         parse_mode="Markdown"
     )
@@ -798,7 +788,7 @@ def process_name(message):
     msg = bot.send_message(
         message.chat.id,
         "📱 *Введите номер телефона:*\n\n"
-        "В формате: +7 (999) 999-99-99\n"
+        "В формате: +7 (999) 123-45-67\n"
         "Или нажмите кнопку ниже для автоматической отправки",
         reply_markup=phone_keyboard(),
         parse_mode="Markdown"
@@ -828,7 +818,7 @@ def process_phone(message):
         msg = bot.send_message(
             message.chat.id,
             "❌ Некорректный номер телефона.\n"
-            "Пожалуйста, введите в формате: +7 (999) 999-99-99\n"
+            "Пожалуйста, введите в формате: +7 (999) 123-45-67\n"
             "Или нажмите кнопку «📱 Отправить номер телефона»",
             reply_markup=phone_keyboard()
         )
@@ -882,6 +872,7 @@ def confirm_booking(message):
         parse_mode="Markdown"
     )
     
+    # Уведомление админам
     for admin_id in ADMIN_IDS:
         try:
             bot.send_message(
@@ -897,19 +888,20 @@ def confirm_booking(message):
         except:
             pass
 
-# ==================== ОБЩИЕ ОБРАБОТЧИКИ КАЛЕНДАРЯ ====================
+# ==================== ОБРАБОТЧИКИ КАЛЕНДАРЯ (ОБЩИЕ) ====================
 
 @bot.callback_query_handler(func=lambda call: call.data == "cal_back")
 def calendar_back(call):
     """Возврат к календарю"""
     today = datetime.now()
-    safe_edit_message_text(
-        call.message.chat.id,
-        call.message.message_id,
+    bot.edit_message_text(
         f"📅 *Выберите дату:*\n\n"
         f"🔴 — нет свободных слотов\n"
         f"📍 — сегодняшняя дата",
-        reply_markup=create_calendar(today.year, today.month)
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=create_calendar(today.year, today.month),
+        parse_mode="Markdown"
     )
 
 @bot.callback_query_handler(func=lambda call: call.data == "cal_main_menu")
@@ -937,12 +929,13 @@ def cancel_confirm(call):
     if date_str:
         client_name = data.get('client_name', 'Не указано')
         
-        safe_edit_message_text(
-            call.message.chat.id,
-            call.message.message_id,
+        bot.edit_message_text(
             f"✅ *Запись отменена*\n\n"
             f"👤 {client_name}\n"
-            f"📅 {date_str} в {time_str} — освободилось."
+            f"📅 {date_str} в {time_str} — освободилось.",
+            call.message.chat.id,
+            call.message.message_id,
+            parse_mode="Markdown"
         )
         
         bot.send_message(call.message.chat.id, "Выберите действие:", reply_markup=main_keyboard())
@@ -966,20 +959,12 @@ def cancel_confirm(call):
             except:
                 pass
     else:
-        safe_edit_message_text(
-            call.message.chat.id,
-            call.message.message_id,
-            "❌ Не удалось отменить запись."
-        )
+        bot.edit_message_text("❌ Не удалось отменить запись.", call.message.chat.id, call.message.message_id)
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_decline")
 def cancel_decline(call):
     """Отмена отмены"""
-    safe_edit_message_text(
-        call.message.chat.id,
-        call.message.message_id,
-        "✅ Запись сохранена."
-    )
+    bot.edit_message_text("✅ Запись сохранена.", call.message.chat.id, call.message.message_id)
     bot.send_message(call.message.chat.id, "Выберите действие:", reply_markup=main_keyboard())
 
 # ==================== АДМИН-ПАНЕЛЬ ====================
@@ -1027,16 +1012,17 @@ def admin_calendar_navigation(call):
     users = get_all_users()
     total_users = len(users)
     
-    safe_edit_message_text(
-        call.message.chat.id,
-        call.message.message_id,
+    bot.edit_message_text(
         f"📊 *АДМИН-ПАНЕЛЬ*\n\n"
         f"📅 Выберите дату для просмотра записей\n"
         f"📈 Активных записей: *{total}*\n"
         f"👥 Пользователей в боте: *{total_users}*\n\n"
         f"🔵 — есть записи на дату\n"
         f"⚪ — нет записей",
-        reply_markup=create_admin_calendar(year, month, appointments)
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=create_admin_calendar(year, month, appointments),
+        parse_mode="Markdown"
     )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_day_"))
@@ -1083,12 +1069,10 @@ def admin_day_selected(call):
     markup.add(InlineKeyboardButton("📢 Рассылка", callback_data="admin_broadcast"))
     markup.add(InlineKeyboardButton("🚪 Закрыть", callback_data="admin_close"))
     
-    safe_edit_message_text(
-        call.message.chat.id,
-        call.message.message_id,
-        text,
-        reply_markup=markup
-    )
+    try:
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except:
+        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_cancel_"))
 def admin_cancel_appointment(call):
@@ -1097,6 +1081,7 @@ def admin_cancel_appointment(call):
         bot.answer_callback_query(call.id, "🚫 Доступ запрещён")
         return
     
+    # Правильно разбираем callback_data
     parts = call.data.split("_", 2)
     date_time = parts[2].rsplit("_", 1)
     
@@ -1164,12 +1149,13 @@ def admin_cancel_appointment(call):
         markup.add(InlineKeyboardButton("📢 Рассылка", callback_data="admin_broadcast"))
         markup.add(InlineKeyboardButton("🚪 Закрыть", callback_data="admin_close"))
         
-        safe_edit_message_text(
-            call.message.chat.id,
-            call.message.message_id,
-            text,
-            reply_markup=markup
-        )
+        try:
+            bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+        except:
+            try:
+                bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+            except:
+                pass
     else:
         bot.answer_callback_query(call.id, "❌ Запись уже не существует")
 
@@ -1186,16 +1172,17 @@ def admin_back_to_calendar(call):
     users = get_all_users()
     total_users = len(users)
     
-    safe_edit_message_text(
-        call.message.chat.id,
-        call.message.message_id,
+    bot.edit_message_text(
         f"📊 *АДМИН-ПАНЕЛЬ*\n\n"
         f"📅 Выберите дату для просмотра записей\n"
         f"📈 Активных записей: *{total}*\n"
         f"👥 Пользователей в боте: *{total_users}*\n\n"
         f"🔵 — есть записи на дату\n"
         f"⚪ — нет записей",
-        reply_markup=create_admin_calendar(today.year, today.month, appointments)
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=create_admin_calendar(today.year, today.month, appointments),
+        parse_mode="Markdown"
     )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_refresh_"))
@@ -1213,16 +1200,17 @@ def admin_refresh(call):
     users = get_all_users()
     total_users = len(users)
     
-    safe_edit_message_text(
-        call.message.chat.id,
-        call.message.message_id,
+    bot.edit_message_text(
         f"📊 *АДМИН-ПАНЕЛЬ*\n\n"
         f"📅 Выберите дату для просмотра записей\n"
         f"📈 Активных записей: *{total}*\n"
         f"👥 Пользователей в боте: *{total_users}*\n\n"
         f"🔵 — есть записи на дату\n"
         f"⚪ — нет записей",
-        reply_markup=create_admin_calendar(year, month, appointments)
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=create_admin_calendar(year, month, appointments),
+        parse_mode="Markdown"
     )
     
     bot.answer_callback_query(call.id, "✅ Обновлено")
@@ -1286,12 +1274,7 @@ def admin_all_list(call):
         
         bot.send_message(call.message.chat.id, "Действия:", reply_markup=markup)
     else:
-        safe_edit_message_text(
-            call.message.chat.id,
-            call.message.message_id,
-            text,
-            reply_markup=markup
-        )
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 # ==================== РАССЫЛКА ====================
 
@@ -1333,12 +1316,14 @@ def process_broadcast_text(message):
         bot.register_next_step_handler(msg, process_broadcast_text)
         return
     
+    # Спрашиваем подтверждение
     markup = InlineKeyboardMarkup()
     markup.add(
         InlineKeyboardButton("✅ Отправить", callback_data="broadcast_confirm_text"),
         InlineKeyboardButton("❌ Отмена", callback_data="broadcast_cancel")
     )
     
+    # Сохраняем текст
     user_booking_data[f"broadcast_text_{message.from_user.id}"] = text
     
     users = get_all_users()
@@ -1362,6 +1347,7 @@ def broadcast_confirm(call):
         bot.answer_callback_query(call.id, "🚫 Доступ запрещён")
         return
     
+    # Получаем текст рассылки
     if call.data == "broadcast_confirm_text":
         text = user_booking_data.pop(f"broadcast_text_{call.from_user.id}", None)
     else:
@@ -1376,18 +1362,15 @@ def broadcast_confirm(call):
     success = 0
     failed = 0
     
-    # Удаляем старое сообщение и отправляем новое
-    try:
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-    except:
-        pass
-    
-    status_msg = bot.send_message(
+    bot.edit_message_text(
+        f"📢 *Рассылка началась...*\n"
+        f"👥 Всего получателей: {total}",
         call.message.chat.id,
-        f"📢 *Рассылка началась...*\n👥 Всего получателей: {total}",
+        call.message.message_id,
         parse_mode="Markdown"
     )
     
+    # Отправляем сообщения
     for user in users:
         try:
             bot.send_message(
@@ -1399,14 +1382,10 @@ def broadcast_confirm(call):
         except:
             failed += 1
         
+        # Небольшая задержка чтобы не превысить лимиты Telegram
         time.sleep(0.05)
     
-    # Удаляем статусное сообщение
-    try:
-        bot.delete_message(call.message.chat.id, status_msg.message_id)
-    except:
-        pass
-    
+    # Отчёт о рассылке
     report = (
         f"✅ *Рассылка завершена!*\n\n"
         f"📝 Текст:\n"
@@ -1431,18 +1410,19 @@ def broadcast_cancel(call):
         bot.answer_callback_query(call.id, "🚫 Доступ запрещён")
         return
     
+    # Очищаем сохранённый текст
     user_booking_data.pop(f"broadcast_{call.from_user.id}", None)
     user_booking_data.pop(f"broadcast_text_{call.from_user.id}", None)
     
-    # Удаляем сообщение вместо редактирования
-    try:
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-    except:
-        pass
+    bot.edit_message_text(
+        "❌ Рассылка отменена.",
+        call.message.chat.id,
+        call.message.message_id
+    )
     
     bot.send_message(
         call.message.chat.id,
-        "❌ Рассылка отменена.\nВыберите действие:",
+        "Выберите действие:",
         reply_markup=main_keyboard()
     )
 
@@ -1494,6 +1474,7 @@ def check_reminders():
             time_diff = app_datetime - now
             client_name = data.get('client_name', 'Клиент')
             
+            # Напоминание за день
             if REMINDER_DAY_BEFORE and not data.get('reminded_day'):
                 if timedelta(hours=23, minutes=55) <= time_diff <= timedelta(hours=24, minutes=5):
                     recipients = [data['user_id']] + ADMIN_IDS
@@ -1513,6 +1494,7 @@ def check_reminders():
                     data['reminded_day'] = True
                     save_appointments(appointments)
             
+            # Напоминание за час
             if REMINDER_HOUR_BEFORE and not data.get('reminded_hour'):
                 if timedelta(minutes=55) <= time_diff <= timedelta(minutes=65):
                     recipients = [data['user_id']] + ADMIN_IDS
@@ -1554,6 +1536,7 @@ if __name__ == "__main__":
     print(f"📢 Рассылка: /news [текст]")
     print(f"📁 Данные хранятся в: {DATA_DIR}")
     
+    # Проверка прав на запись
     try:
         if not os.path.exists(APPOINTMENTS_FILE):
             with open(APPOINTMENTS_FILE, 'w', encoding='utf-8') as f:
@@ -1576,6 +1559,7 @@ if __name__ == "__main__":
     
     print("=" * 50)
     
+    # Очистка старых записей
     appointments = load_appointments()
     today = datetime.now().strftime("%d.%m.%Y")
     cleaned = False
@@ -1591,9 +1575,11 @@ if __name__ == "__main__":
     
     print(f"👥 Пользователей в базе: {len(get_all_users())}")
     
+    # Запуск планировщика
     reminder_thread = threading.Thread(target=run_scheduler, daemon=True)
     reminder_thread.start()
     
+    # Запуск бота
     while True:
         try:
             print("🚀 Бот запущен!")
