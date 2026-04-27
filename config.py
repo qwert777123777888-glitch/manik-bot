@@ -6,27 +6,23 @@ import os
 TOKEN = os.getenv("BOT_TOKEN", "")
 
 # ==================== АДМИНЫ ====================
-# ID пользователей Telegram (можно узнать через @userinfobot)
-ADMIN_IDS = [
-    957832107,  # Админ 1
-    # 987654321,  # Админ 2 (раскомментируйте и добавьте ID)
-]
+ADMIN_IDS_STR = os.getenv("ADMIN_IDS", "123456789")
+ADMIN_IDS = [int(id.strip()) for id in ADMIN_IDS_STR.split(",") if id.strip()]
 
 # ==================== НАСТРОЙКИ ЗАПИСИ ====================
-WORK_START_HOUR = 9       # Начало рабочего дня (9:00)
-WORK_END_HOUR = 20         # Конец рабочего дня (20:00) - последний слот
-SLOT_DURATION_MINUTES = 60 # Длительность слота в минутах (60 = 1 час)
+WORK_START_HOUR = int(os.getenv("WORK_START_HOUR", "10"))
+WORK_END_HOUR = int(os.getenv("WORK_END_HOUR", "20"))
+SLOT_DURATION_MINUTES = int(os.getenv("SLOT_DURATION_MINUTES", "60"))
 
 # ==================== НАСТРОЙКИ НАПОМИНАНИЙ ====================
-REMINDER_DAY_BEFORE = True  # Напоминание за день до записи
-REMINDER_HOUR_BEFORE = True # Напоминание за час до записи
+REMINDER_DAY_BEFORE = os.getenv("REMINDER_DAY_BEFORE", "True").lower() == "true"
+REMINDER_HOUR_BEFORE = os.getenv("REMINDER_HOUR_BEFORE", "True").lower() == "true"
 
 # ==================== ПОРТФОЛИО ====================
-# Ссылка на фото (Imgur, ImgBB и т.д.)
-PORTFOLIO_PHOTO_URL = "https://ibb.co/DgvP46BT"  # Оставьте пустым, если фото не нужно
+PORTFOLIO_PHOTO_URL = os.getenv("PORTFOLIO_PHOTO_URL", "")
 
-# ==================== ТЕКСТЫ (Можно редактировать) ====================
-WELCOME_TEXT = """
+# ==================== ТЕКСТЫ ====================
+WELCOME_TEXT = os.getenv("WELCOME_TEXT", """
 ✨ *Добро пожаловать!* ✨
 
 Меня зовут Анна, профессиональный мастер ногтевого сервиса.
@@ -34,21 +30,21 @@ WELCOME_TEXT = """
 💅 *Услуги:* маникюр, педикюр, наращивание, дизайн
 
 📍 *Адрес:* ул. Примерная, д. 123
-🕐 *Время работы:* ежедневно с 9:00 до 20:00
+🕐 *Время работы:* ежедневно с 10:00 до 20:00
 
 Для записи нажмите кнопку ниже 👇
-"""
+""")
 
-PORTFOLIO_TEXT = """
+PORTFOLIO_TEXT = os.getenv("PORTFOLIO_TEXT", """
 🎨 *Мои работы*
 
 Пример моей работы. Всегда стремлюсь к идеальному результату!
 
 🔗 *Больше работ в Telegram-канале:*
 👉 [@your_channel](https://t.me/your_channel)
-"""
+""")
 
-PRICE_TEXT = """
+PRICE_TEXT = os.getenv("PRICE_TEXT", """
 💰 *ПРАЙС-ЛИСТ*
 
 *💅 МАНИКЮР:*
@@ -68,13 +64,4 @@ PRICE_TEXT = """
 *✨ НАРАЩИВАНИЕ:*
 • Наращивание — от 3000 ₽
 • Коррекция — от 2500 ₽
-"""
-
-# ==================== ОТЛАДКА ====================
-print("=" * 50)
-print("📋 ЗАГРУЖЕННАЯ КОНФИГУРАЦИЯ:")
-print(f"🕐 Рабочие часы: {WORK_START_HOUR}:00 - {WORK_END_HOUR}:00")
-print(f"👑 Админы: {ADMIN_IDS}")
-print(f"🔔 Напоминания: за день={REMINDER_DAY_BEFORE}, за час={REMINDER_HOUR_BEFORE}")
-print(f"🖼 Фото портфолио: {'Установлено' if PORTFOLIO_PHOTO_URL else 'Не установлено'}")
-print("=" * 50)
+""")
